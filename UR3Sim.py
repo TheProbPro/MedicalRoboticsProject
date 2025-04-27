@@ -9,6 +9,7 @@ import copy
 import sys
 import logging
 import time
+import numpy as np
 from pytransform3d import transformations as pt
 # from paho.mqtt import client as mqtt_client
 
@@ -40,8 +41,8 @@ if __name__ == '__main__':
 
     env = Swift()
 
-    #robot = rtb.models.URDF.UR3()
     robot = rtb.models.UR3()
+    #robot = rtb.models.URDF.UR3()
     
     q1 = np.deg2rad([-150, 0, -90, 0, 90, 0])
     T_base_tcp = SE3.Rt(SO3.Ry(np.pi), np.array([0.4, 0.1, 0.4]))
@@ -60,11 +61,11 @@ if __name__ == '__main__':
     plane_axes = sg.Axes(length=0.1, pose=T_base_plane)
     
     
-    env.launch(frequency=500, realtime=True)
-    env.add(box)
+    env.launch(realtime=True, rate=500)#frequency=500, realtime=True)
+    #env.add(box)
     env.add(robot)
-    env.add(plane_axes)
-    env.add(tip_axes)
+    #env.add(plane_axes)
+    #env.add(tip_axes)
     env.step(0.002)
 
     # get tip in base as position and quaternion
