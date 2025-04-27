@@ -1,0 +1,244 @@
+<robot name="UR3_URDF">
+
+  <!-- Base link and fixed world reference -->
+  <link name="base_footprint">
+    <!-- base_footprint is a dummy link representing the world/base frame -->
+  </link>
+
+  <link name="base_link">
+    <!-- Base of the robot: cylindrical pedestal -->
+    <visual>
+      <origin xyz="0 0 0.075" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.15"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.075" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.10" length="0.15"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="shoulder_link">
+    <!-- Shoulder link: small cylinder at shoulder pan joint -->
+    <visual>
+      <origin xyz="0 0 -0.025" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.08" length="0.05"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.025" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.08" length="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="upper_arm_link">
+    <!-- Upper arm link: box from shoulder to elbow -->
+    <visual>
+      <!-- box length ~0.24365 m (shoulder to elbow) -->
+      <origin xyz="0.121825 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.24365 0.04 0.04"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.121825 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.24365 0.04 0.04"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="forearm_link">
+    <!-- Forearm link: box from elbow to wrist 1 -->
+    <visual>
+      <!-- box length ~0.21325 m (elbow to wrist) -->
+      <origin xyz="0.106625 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.21325 0.035 0.035"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.106625 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.21325 0.035 0.035"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="wrist_1_link">
+    <!-- Wrist 1 link: includes vertical drop from forearm and horizontal extension to wrist 2 -->
+    <visual>
+      <!-- Vertical cylinder dropping ~0.1123 m (d4) from wrist1 joint -->
+      <origin xyz="0 0 -0.05615" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03" length="0.1123"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <!-- Horizontal box extending ~0.08535 m (d5) from wrist1 to wrist2 -->
+      <origin xyz="0 -0.042675 -0.1123" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.08535 0.02 0.02"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.042675 -0.1123" rpy="0 0 0"/>
+      <geometry>
+        <!-- Use a combined collision shape (approximate L-shape) -->
+        <box size="0.08535 0.02 0.12"/> 
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="wrist_2_link">
+    <!-- Wrist 2 link: small horizontal link from wrist2 to wrist3 -->
+    <visual>
+      <!-- Horizontal box extending ~0.0819 m (d6) from wrist2 to wrist3 -->
+      <origin xyz="0 0.04095 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.0819 0.02 0.02"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.04095 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.0819 0.02 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="wrist_3_link">
+    <!-- Wrist 3 link (flange): represented as a small sphere at the wrist3 joint -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.03"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="tool0">
+    <!-- Tool0 (end-effector mount) link: small cylinder as tool flange -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.02"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Joints -->
+  <!-- Fixed base joint attaching base_link to world (base_footprint) -->
+  <joint name="base_fixed_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Joint 1: Base shoulder pan -->
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
+    <origin xyz="0 0 0.1519" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.283" upper="6.283" effort="56.0" velocity="3.14"/>
+  </joint>
+
+  <!-- Joint 2: Shoulder lift -->
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="upper_arm_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283" upper="6.283" effort="56.0" velocity="3.14"/>
+  </joint>
+
+  <!-- Joint 3: Elbow -->
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
+    <origin xyz="0.24365 0 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-3.1416" upper="3.1416" effort="28.0" velocity="3.14"/>
+  </joint>
+
+  <!-- Joint 4: Wrist 1 -->
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_1_link"/>
+    <origin xyz="0.21325 0 -0.11235" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283" upper="6.283" effort="12.0" velocity="6.28"/>
+  </joint>
+
+  <!-- Joint 5: Wrist 2 -->
+  <joint name="wrist_2_joint" type="revolute">
+    <parent link="wrist_1_link"/>
+    <child link="wrist_2_link"/>
+    <origin xyz="0 -0.08535 0" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-6.283" upper="6.283" effort="12.0" velocity="6.28"/>
+  </joint>
+
+  <!-- Joint 6: Wrist 3 -->
+  <joint name="wrist_3_joint" type="revolute">
+    <parent link="wrist_2_link"/>
+    <child link="wrist_3_link"/>
+    <origin xyz="0 0.0819 0" rpy="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-6.283" upper="6.283" effort="12.0" velocity="6.28"/>
+  </joint>
+
+  <!-- Fixed joint: Wrist 3 to tool0 (end-effector) -->
+  <joint name="wrist_3_tool0_fixed" type="fixed">
+    <parent link="wrist_3_link"/>
+    <child link="tool0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+</robot>
