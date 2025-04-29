@@ -12,6 +12,30 @@ from sdu_controllers import AdmittanceControllerPosition
 
 _logger = logging.getLogger('Palpation_robot')
 
+def force_calculator(tool_position, box_position, box_size):
+    """
+    This function calculates the force applied to the endeffector of the robot, depending on how much it has penetrated the box phantom.
+    """
+    F = 0
+    # Define the tissue constants
+    k_tissue = 1000  # Tissue stiffness estimate (i came up with this number)
+
+    # Check if the tool is inside the box
+    box_min = box_position - box_size / 2  # Minimum corner of the box
+    box_max = box_position + box_size / 2  # Maximum corner of the box
+
+    if np.all(tool_position >= box_min) and np.all(tool_position <= box_max):
+        # Tool is inside the box
+        penetration_depth = box_max[2] - tool_position[2]  # Penetration along the z-axis
+        if penetration_depth > 0:
+            # Calculate the force using Hooke's law
+            F = k_tissue * penetration_depth
+            print(f"Tool is inside the box. Penetration depth: {penetration_depth:.4f} m, Force: {F:.2f} N")
+    
+    return F
+
+
+
 if __name__ == '__main__':
     # Setup robot parameters
     freq = 500
@@ -32,7 +56,8 @@ if __name__ == '__main__':
     box_plane = SE3(0.3,0,0)
 
     # Create box
-    box = sg.Cuboid([0.1,0.1,0.1], pose=box_plane, collision=True)
+    box_size = np.array([0.1, 0.1, 0.1])
+    box = sg.Cuboid(box_size, pose=box_plane, collision=True)
 
     # Add robot and box to environment
     env.launch(frequency=freq, realtime=True)
@@ -44,7 +69,8 @@ if __name__ == '__main__':
     time.sleep(1)
 
     #define target pose 0.2 above the box and tool oriented to point at the box
-    orientation = SE3.Rt(SO3.Ry(np.pi/2), [0, 0, 0.1])
+    #orientation = SE3.Rt(SO3.Ry(np.pi/2), [0, 0, 0.1])
+    orientation = SE3.Rt(SO3.Rz(np.pi/2), [0, 0, 0.02])
     target_pose = box_plane * orientation#SE3.Trans(0, 0, 0.2) * SO3.rpy(0, np.pi/2, np.pi/2)#SE3.Rx(-np.pi / 2) * SE3.Ry(np.pi / 2) * SE3.Rz(np.pi / 2)
 
     # Check if any joints go below the floor_plane
@@ -84,6 +110,15 @@ if __name__ == '__main__':
     # Execute the valid trajectory
     for q in trajectory.q:
         robot.q = q
+
+        # Get the current end-effector position
+        tool_position = robot.fkine(q).t
+
+        # Calculate the force applied to the end-effector
+        box_position = box_plane.t
+        force = force_calculator(tool_position, box_position, box_size)
+
+        #env.step(0.02)
         env.step(dt)
 
     print('Moved to box')
