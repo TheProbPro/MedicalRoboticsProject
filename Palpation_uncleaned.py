@@ -15,8 +15,6 @@ from BaysianOptimization.Optimizer import BayesianOptimizer3D
 
 _logger = logging.getLogger('Palpation_robot')
 
-# TODO: Fix elbow joint pointing downwards, robot doing large rotations (180*), toolflange rotating, implement Admittance controller
-
 def force_calculator(tool_position, box_position, box_size):
     """
     This function calculates the force applied to the endeffector of the robot, depending on how much it has penetrated the box phantom.
@@ -39,23 +37,10 @@ def force_calculator(tool_position, box_position, box_size):
     
     return F
 
-def xyToRobotPose(xy, robot):
-    """
-    This function converts a 2D point in the box plane to a 3D pose for the robot.
-    """
-    x, y = xy
-    z = 0.1
-    # Convert to robot pose
-    robot_pose = SE3(x, y, z) * robot.base
-    return robot_pose
-
 def find_valid_trajectory(robot, target_pose, q_start):
     """
     This function finds a valid trajectory for the robot to reach the target pose without going below z=0.
     """
-
-    ground_z = robot.base.t[2]
-
     while True:
         #ik_solution = robot.ikine_LM(target_pose)
         q, success, iter, searches, residual = robot.ik_LM(target_pose)
@@ -70,17 +55,10 @@ def find_valid_trajectory(robot, target_pose, q_start):
 
         for q in trajectory.q:
             fk = robot.fkine_all(q)
-            # check if any joint is below the ground
-            if any(joint_pose.t[2] < ground_z for joint_pose in fk):
+            if any(joint_pose.t[2] < 0 for joint_pose in fk):
                 is_valid = False
                 break  # A joint is below the ground
 
-            # Check if the elbow joint is above the shoulder joint
-            if fk[2].t[2] < fk[1].t[2]:
-                is_valid = False
-                break
-
-            # Check for singularities
             J = robot.jacob0(q)
             if np.linalg.matrix_rank(J) < 6:  # Or use condition number check
                 is_valid = False
@@ -89,6 +67,40 @@ def find_valid_trajectory(robot, target_pose, q_start):
         if is_valid:
             return trajectory
 
+
+# def find_valid_trajectory(robot, target_pose, q_start):
+#     """
+#     This function finds a valid trajectory for the robot to reach the target pose without going below z=0.
+#     """
+#     valid_trajectory = False
+#     trajectory = None
+#     while not valid_trajectory:
+#         # Plan trajectory
+#         ik_solution = robot.ikine_LM(target_pose)
+
+#         if not ik_solution.success:
+#             raise RuntimeError("IK failed to find a solution.")
+    
+#         q_target = ik_solution.q
+#         trajectory = rtb.jtraj(q_start, q_target, 1000)
+
+#         # Check if any joint goes below z=0
+#         for q in trajectory.q:
+#             fk = robot.fkine_all(q)  # Compute forward kinematics
+#             for joint_pose in fk:
+#                 if joint_pose.t[2] < 0:  # Check if z-coordinate is below 0
+#                     #print("Joint below z=0 detected!")
+#                     break
+            
+#             # Check for singularity
+#             J = robot.jacob0(q)  # Compute the Jacobian at the current configuration
+#             if np.linalg.det(J) == 0:  # High condition number indicates a singularity
+#                 #print("Singularity detected!")
+#                 break
+            
+#             valid_trajectory = True
+
+#     return trajectory
     
 def execute_trajectory(robot, trajectory, box_plane, box_size, dt):
     """
@@ -127,7 +139,47 @@ def execute_trajectory(robot, trajectory, box_plane, box_size, dt):
 
             if force >= 8.0:
                 stopPos = tool_position[2]
-                return (contactPos- stopPos) * force
+                return (stopPos - contactPos) * force
+
+        # Get the current end-effector position
+
+
+    # for q in trajectory.q:
+    #     robot.q = q
+
+    #     # Get the current end-effector position
+    #     tool_position = robot.fkine(q).t
+
+    #     # Calculate the force applied to the end-effector
+    #     box_position = box_plane.t
+    #     force = force_calculator(tool_position, box_position, box_size)
+
+    #     if force > 0 and contactPos is None:
+    #         contactPos = tool_position
+
+    #     if force > 8.0:
+    #         stopPos = tool_position
+    #         break
+
+    #     # Simulate environment step
+    #     env.step(dt)
+    # if contactPos is None and stopPos is None:
+    #     return 0
+    # else:
+    #     return (stopPos - contactPos) * force
+
+def xyToRobotPose(xy, robot):
+    """
+    This function converts a 2D point in the box plane to a 3D pose for the robot.
+    """
+    # TODO: This is not done
+    x = xy[0]
+    y = xy[1]
+    z = 0.1
+    # Convert to robot pose
+    tcp_orientation = SO3.Rx(np.pi)  # Point TCP Z down
+    robot_pose = SE3(x, y, z) * robot.base# * SE3(tcp_orientation)
+    return robot_pose
 
 
 if __name__ == '__main__':
@@ -137,7 +189,7 @@ if __name__ == '__main__':
 
     # Initialize robot
     robot = rtb.models.UR3()
-    robot.tool = SE3(0, 0, 0.194)
+    robot.tool = SE3(0, 0, 0.1)
     q_start = np.array([0, -np.pi / 4, np.pi / 4, -np.pi / 4, np.pi / 2, 0])
     robot.q = q_start
 
@@ -163,18 +215,23 @@ if __name__ == '__main__':
 
     time.sleep(1)
 
+    #define target pose 0.2 above the box and tool oriented to point at the box
+    #orientation = SE3.Rt(SO3.Ry(np.pi/2), [0, 0, 0.1])
+    orientation = SE3.Rt(SO3.Rz(np.pi/2), [0, 0, 0.02])
+    target_pose = box_plane * orientation#SE3.Trans(0, 0, 0.2) * SO3.rpy(0, np.pi/2, np.pi/2)#SE3.Rx(-np.pi / 2) * SE3.Ry(np.pi / 2) * SE3.Rz(np.pi / 2)
+
     # Initialize the Bayesian optimizer
     optimizer = BayesianOptimizer3D(box_size, box_plane.t)
     # Get initial samples
     samples = optimizer.init_random_samples()
 
     # Simulate sampling
-    while optimizer.get_number_of_samples() < 50:#50:
+    while optimizer.get_number_of_samples() < 10:#50:
         i = optimizer.get_number_of_samples()
         if i < 5:
             traj = find_valid_trajectory(robot, xyToRobotPose(samples[i], robot), robot.q)
             stiffness = execute_trajectory(robot, traj, box_plane, box_size, dt)
-            print(f"Updating sample {i} with sample {samples[i]}, stiffness {stiffness}")
+            print(f"Updating samples with sample {samples[i]}, stiffness {stiffness}")
             optimizer.update_samples(samples[i], stiffness)
         else:
             # Get the next sample point
@@ -182,10 +239,62 @@ if __name__ == '__main__':
             # Execute the trajectory for the next sample
             traj = find_valid_trajectory(robot, xyToRobotPose(next_sample, robot), robot.q)
             stiffness = execute_trajectory(robot, traj, box_plane, box_size, dt)
-            print(f"Updating sample {i} with sample {next_sample}, stiffness {stiffness}")
+            print(f"Updating samples with sample {next_sample}, stiffness {stiffness}")
             optimizer.update_samples(next_sample, stiffness)
 
     print("finish sampling")
 
     # Plot the optimization results
     optimizer.plot_optimization()
+
+    
+
+    # Check if any joints go below the floor_plane
+    # while True:
+    #     # Plan trajectory
+    #     ik_solution = robot.ikine_LM(target_pose)
+
+    #     if not ik_solution.success:
+    #         raise RuntimeError("IK failed to find a solution.")
+    
+    #     q_target = ik_solution.q
+    #     trajectory = rtb.jtraj(q_start, q_target, 1000)
+
+    #     # Check if any joint goes below z=0
+    #     valid_trajectory = True
+    #     for q in trajectory.q:
+    #         fk = robot.fkine_all(q)  # Compute forward kinematics
+    #         for joint_pose in fk:
+    #             if joint_pose.t[2] < 0:  # Check if z-coordinate is below 0
+    #                 valid_trajectory = False
+    #                 print("Joint below z=0 detected!")
+    #                 break
+            
+    #         # Check for singularity
+    #         J = robot.jacob0(q)  # Compute the Jacobian at the current configuration
+    #         if np.linalg.det(J) == 0:  # High condition number indicates a singularity
+    #             valid_trajectory = False
+    #             print("Singularity detected!")
+    #             break
+
+    #     if valid_trajectory:
+    #         break  # Exit loop if trajectory is valid
+    #     #else:
+    #     #   # Adjust target pose slightly upward and retry
+    #     #    target_pose = target_pose * SE3.Trans(0, 0, 0.001)
+
+    # # Execute the valid trajectory
+    # for q in trajectory.q:
+    #     robot.q = q
+
+    #     # Get the current end-effector position
+    #     tool_position = robot.fkine(q).t
+
+    #     # Calculate the force applied to the end-effector
+    #     box_position = box_plane.t
+    #     force = force_calculator(tool_position, box_position, box_size)
+
+    #     #env.step(0.02)
+    #     env.step(dt)
+
+    # print('Moved to box')

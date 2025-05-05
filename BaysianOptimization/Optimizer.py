@@ -1,0 +1,125 @@
+import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern
+from BaysianOptimization.Target import target_function
+from BaysianOptimization.Acquisition import expected_improvement
+from BaysianOptimization.PlotUtils import plot_surface_3d
+
+# Main Bayesian Optimization loop
+def run_bo_3d(n_init=5, n_iter=20, grid_size=50, seed=42):
+    np.random.seed(seed)
+    
+    # Create 2D grid
+    x = np.linspace(0, 6, grid_size)
+    y = np.linspace(0, 6, grid_size)
+    X1, X2 = np.meshgrid(x, y)
+    X_grid = np.vstack([X1.ravel(), X2.ravel()]).T
+
+    # Random initial samples
+    init_idx = np.random.choice(len(X_grid), n_init, replace=False)
+    X_sample = X_grid[init_idx]
+    y_sample = target_function(X_sample)
+   
+    # Gaussian Process model
+    kernel = Matern(nu=2.5)
+    gp = GaussianProcessRegressor(kernel=kernel, alpha=1e-6, normalize_y=True)
+    # alpha: noise level
+    # normalize_y: normalize the target variable
+    # Optimization iterations
+    for i in range(n_iter):
+        gp.fit(X_sample, y_sample)
+        y_best = np.max(y_sample)
+        ei = expected_improvement(X_grid, gp, y_best)
+        next_idx = np.argmax(ei)
+        next_x = X_grid[next_idx]
+        next_y = target_function(next_x.reshape(1, -1))
+        X_sample = np.vstack((X_sample, next_x))
+        y_sample = np.append(y_sample, next_y)
+
+    # Final GP model and outputs
+    gp.fit(X_sample, y_sample)
+    mu, std = gp.predict(X_grid, return_std=True)
+    ei_final = expected_improvement(X_grid, gp, np.max(y_sample))
+    Z_target = target_function(X_grid)
+
+    return X1, X2, mu, std, ei_final, Z_target, X_sample
+
+class BayesianOptimizer3D:
+    def __init__(self, boxSize, boxPosition, grid_size=50, n_init=5, seed=42):
+        """
+        Initialize the Bayesian Optimizer with the box size and position.
+        """
+        self.boxSize = boxSize
+        self.boxPosition = boxPosition
+        self.grid_size = grid_size
+        self.n_init = n_init
+        self.seed = seed
+        self.X_grid = None
+        self.X_sample = np.array([])
+        self.y_sample = np.array([])
+        self.gp = GaussianProcessRegressor(kernel=Matern(nu=2.5), alpha=1e-6, normalize_y=True)
+        np.random.seed(self.seed)
+
+    def init_random_samples(self):
+        """
+        Generate a 2D grid based on the box size and position.
+        """
+        # Generate a grid of points within the box
+        x = np.linspace(self.boxPosition[0] - self.boxSize[0] / 2, self.boxPosition[0] + self.boxSize[0] / 2, self.grid_size)
+        y = np.linspace(self.boxPosition[1] - self.boxSize[1] / 2, self.boxPosition[1] + self.boxSize[1] / 2, self.grid_size)
+        self.X1, self.X2 = np.meshgrid(x, y)
+        self.X_grid = np.vstack([self.X1.ravel(), self.X2.ravel()]).T
+        # Randomly select n_init amount of points
+        init_idx = np.random.choice(len(self.X_grid), self.n_init, replace=False)
+        X_sample = self.X_grid[init_idx]
+        return X_sample
+
+    def update_samples(self, new_point, force_reading):
+        """
+        Update the samples with a new point and its corresponding force reading.
+        """
+        # if new_point.size == 0 or force_reading.size == 0:
+        #     return
+        # elif new_point.shape[0] != 2:
+        #     raise ValueError("new_point must be a 2D point.")
+        
+        if self.X_sample.size == 0 and self.y_sample.size == 0:
+            self.X_sample = np.array([new_point])
+            self.y_sample = np.array([force_reading])
+        else:
+            self.X_sample = np.vstack([self.X_sample, new_point])
+            self.y_sample = np.append(self.y_sample, force_reading)
+
+    def get_next_sample(self):
+        """
+        Generate the next point to sample using Expected Improvement.
+        """
+        self.gp.fit(self.X_sample, self.y_sample)
+        y_best = np.max(self.y_sample)
+        ei = expected_improvement(self.X_grid, self.gp, y_best)
+        next_idx = np.argmax(ei)
+        return self.X_grid[next_idx]
+    
+    def get_number_of_samples(self):
+        """
+        Get the number of samples collected so far.
+        """
+        if self.X_sample is None:
+            return 0
+        else:
+            return len(self.X_sample)
+    
+    def plot_optimization(self):
+        """
+        Plots graphs
+        """
+        self.gp.fit(self.X_sample, self.y_sample)
+        mu, std = self.gp.predict(self.X_grid, return_std=True)
+        ei_final = expected_improvement(self.X_grid, self.gp, np.max(self.y_sample))
+        Z_target = target_function(self.X_grid)
+        plot_surface_3d(
+            self.X1, self.X2,
+            [mu, Z_target, std, ei_final],
+            ["GP Predicted Mean", "True Function", "GP Std Dev (Uncertainty)", "Expected Improvement"],
+            X_sample=self.X_sample
+        )
