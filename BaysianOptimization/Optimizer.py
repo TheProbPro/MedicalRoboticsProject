@@ -4,6 +4,9 @@ from sklearn.gaussian_process.kernels import Matern
 from BaysianOptimization.Target import target_function
 from BaysianOptimization.Acquisition import expected_improvement
 from BaysianOptimization.PlotUtils import plot_surface_3d
+# from Target import target_function
+# from Acquisition import expected_improvement
+# from PlotUtils import plot_surface_3d
 
 # Main Bayesian Optimization loop
 def run_bo_3d(n_init=5, n_iter=20, grid_size=50, seed=42):
@@ -65,8 +68,8 @@ class BayesianOptimizer3D:
         Generate a 2D grid based on the box size and position.
         """
         # Generate a grid of points within the box
-        x = np.linspace(self.boxPosition[0] - self.boxSize[0] / 2, self.boxPosition[0] + self.boxSize[0] / 2, self.grid_size)
-        y = np.linspace(self.boxPosition[1] - self.boxSize[1] / 2, self.boxPosition[1] + self.boxSize[1] / 2, self.grid_size)
+        x = np.linspace((self.boxPosition[0] - self.boxSize[0] / 2) + 0.01, (self.boxPosition[0] + self.boxSize[0] / 2) - 0.01, self.grid_size)
+        y = np.linspace((self.boxPosition[1] - self.boxSize[1] / 2) + 0.01, (self.boxPosition[1] + self.boxSize[1] / 2) - 0.01, self.grid_size)
         self.X1, self.X2 = np.meshgrid(x, y)
         self.X_grid = np.vstack([self.X1.ravel(), self.X2.ravel()]).T
         # Randomly select n_init amount of points
@@ -78,11 +81,6 @@ class BayesianOptimizer3D:
         """
         Update the samples with a new point and its corresponding force reading.
         """
-        # if new_point.size == 0 or force_reading.size == 0:
-        #     return
-        # elif new_point.shape[0] != 2:
-        #     raise ValueError("new_point must be a 2D point.")
-        
         if self.X_sample.size == 0 and self.y_sample.size == 0:
             self.X_sample = np.array([new_point])
             self.y_sample = np.array([force_reading])
@@ -98,14 +96,21 @@ class BayesianOptimizer3D:
         y_best = np.max(self.y_sample)
         ei = expected_improvement(self.X_grid, self.gp, y_best)
         next_idx = np.argmax(ei)
-        return self.X_grid[next_idx]
+        
+        next_sample = self.X_grid[next_idx]
+        box_min = self.boxPosition - self.boxSize / 2
+        box_max = self.boxPosition + self.boxSize / 2
+        if not (box_min[0] <= next_sample[0] <= box_max[0] and
+                box_min[1] <= next_sample[1] <= box_max[1]):
+            raise ValueError("Next sample is outside the box boundaries.")
+        return next_sample
     
     def get_number_of_samples(self):
         """
         Get the number of samples collected so far.
         """
         if self.X_sample is None:
-            return 0
+            return 0    
         else:
             return len(self.X_sample)
     
@@ -123,3 +128,104 @@ class BayesianOptimizer3D:
             ["GP Predicted Mean", "True Function", "GP Std Dev (Uncertainty)", "Expected Improvement"],
             X_sample=self.X_sample
         )
+
+
+# class BayesianOptimizer3D:
+#     def __init__(self, boxSize, boxPosition, margin = 0.1, grid_size=50, n_init=5, seed=42):
+#         """
+#         Initialize the Bayesian Optimizer with the box size and position in meters.
+#         Internally convert everything to centimeters.
+#         """
+#         self.boxSize = np.array(boxSize) * 100        # Convert to cm
+#         self.boxPosition = np.array(boxPosition) * 100  # Convert to cm
+#         self.margin = margin
+#         self.grid_size = grid_size
+#         self.n_init = n_init
+#         self.seed = seed
+#         self.X_grid = None
+#         self.X_sample = np.array([])
+#         self.y_sample = np.array([])
+#         self.gp = GaussianProcessRegressor(kernel=Matern(nu=2.5), alpha=1e-6, normalize_y=True)
+#         np.random.seed(self.seed)
+
+#     def init_random_samples(self):
+#         """
+#         Generate a 2D grid based on the box size and position (in cm),
+#         return initial samples converted to meters.
+#         """
+#         x = np.linspace(
+#             self.boxPosition[0] - self.boxSize[0] / 2 + self.margin,
+#             self.boxPosition[0] + self.boxSize[0] / 2 - self.margin,
+#             self.grid_size
+#         )
+#         y = np.linspace(
+#             self.boxPosition[1] - self.boxSize[1] / 2 + self.margin,
+#             self.boxPosition[1] + self.boxSize[1] / 2 - self.margin,
+#             self.grid_size
+#         )
+
+#         self.X1, self.X2 = np.meshgrid(x, y)
+#         self.X_grid = np.vstack([self.X1.ravel(), self.X2.ravel()]).T
+
+#         init_idx = np.random.choice(len(self.X_grid), self.n_init, replace=False)
+#         X_sample_cm = self.X_grid[init_idx]
+
+#         return X_sample_cm / 100  # Return in meters
+
+#     def update_samples(self, new_point, force_reading):
+#         """
+#         Update the samples. Convert input point from meters to cm internally.
+#         """
+#         new_point_cm = np.array(new_point) * 100
+#         force_reading = np.array(force_reading) * 100
+
+#         if self.X_sample.size == 0 and self.y_sample.size == 0:
+#             self.X_sample = np.array([new_point_cm])
+#             self.y_sample = np.array([force_reading])
+#         else:
+#             self.X_sample = np.vstack([self.X_sample, new_point_cm])
+#             self.y_sample = np.append(self.y_sample, force_reading)
+
+#     def get_next_sample(self):
+#         """
+#         Generate the next point to sample using Expected Improvement.
+#         Return point in meters.
+#         """
+#         self.gp.fit(self.X_sample, self.y_sample)
+#         y_best = np.max(self.y_sample)
+#         ei = expected_improvement(self.X_grid, self.gp, y_best)
+#         next_idx = np.argmax(ei)
+
+#         next_sample_cm = self.X_grid[next_idx]
+
+#         # Validate it lies within box bounds
+#         box_min = self.boxPosition - self.boxSize / 2
+#         box_max = self.boxPosition + self.boxSize / 2
+
+#         if not (box_min[0] <= next_sample_cm[0] <= box_max[0] and
+#                 box_min[1] <= next_sample_cm[1] <= box_max[1]):
+#             raise ValueError("Next sample is outside the box boundaries.")
+
+#         return next_sample_cm / 100  # Return in meters
+
+#     def get_number_of_samples(self):
+#         """
+#         Get the number of samples collected so far.
+#         """
+#         return 0 if self.X_sample is None else len(self.X_sample)
+
+#     def plot_optimization(self):
+#         """
+#         Plot optimization results. All internal data in cm.
+#         """
+#         self.gp.fit(self.X_sample, self.y_sample)
+#         mu, std = self.gp.predict(self.X_grid, return_std=True)
+#         ei_final = expected_improvement(self.X_grid, self.gp, np.max(self.y_sample))
+#         Z_target = target_function(self.X_grid)
+
+#         plot_surface_3d(
+#             self.X1, self.X2,
+#             [mu, Z_target, std, ei_final],
+#             ["GP Predicted Mean", "True Function", "GP Std Dev (Uncertainty)", "Expected Improvement"],
+#             X_sample=self.X_sample
+#         )
