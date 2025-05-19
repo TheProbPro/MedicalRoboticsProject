@@ -325,12 +325,17 @@ if __name__ == '__main__':
             interpolated_pose = point_along_line_3d(StartPose, goalPose, t, freq)
 
             # Admittance controller step
-            adm_controller.step(f, mu, SE3(interpolated_pose).t, quat_init)
+            quat = SO3.Rx(np.pi).UnitQuaternion()
+            quat_array = np.array([quat.s, quat.v[0], quat.v[1], quat.v[2]])  # Convert to [w, x, y, z]
+            adm_controller.step(f, mu, SE3(interpolated_pose).t, quat_array)
             u = adm_controller.get_output()
-            output_position = SE3(u[0:3])
+            output_position = u[0:3]
+            output_quat = u[3:7]
+
+            target_pose = SE3(pt.transform_from_pq(np.hstack((output_position, output_quat))))
             
             valid_trajectory = False
-            q, success, iter, searches, residual = robot.ik_LM(output_position, q0=robot.q)
+            q, success, iter, searches, residual = robot.ik_LM(target_pose, q0=robot.q)
             # Check if the IK solution is valid
             if not success:
                 raise RuntimeError("IK failed to find a solution.")
@@ -449,9 +454,141 @@ if __name__ == '__main__':
 
             robot.q = q
             env.step(dt)
+    
+    print("Finsihed sampling the first 5 points")
 
+    # while optimizer.get_number_of_samples() < 10:
+    #     # Get the next sample point
+    #     next_sample = optimizer.get_next_sample()
+    #     # Convert coordinate to robot coordinate
+    #     target_pose = xyToRobotPose(next_sample, robot)
+    #     begin_pose = target_pose
+    #     target_flange_pose = target_pose * robot.tool.inv()
 
+    #     # Compute the trajectory from the start configuration to the target configuration
+    #     StartPose = robot.fkine(robot.q).t
+    #     goalPose = target_flange_pose.t
 
+    #     for t in range(freq):
+    #         # Interpolate between the start and goal positions
+    #         interpolated_pose = point_along_line_3d(StartPose, goalPose, t, freq)
+
+    #         # Admittance controller step
+    #         quat = SO3.Rx(np.pi).UnitQuaternion()
+    #         quat_array = np.array([quat.s, quat.v[0], quat.v[1], quat.v[2]])  # Convert to [w, x, y, z]
+    #         adm_controller.step(f, mu, SE3(interpolated_pose).t, quat_array)
+    #         u = adm_controller.get_output()
+    #         output_position = u[0:3]
+    #         output_quat = u[3:7]
+
+    #         target_pose = SE3(pt.transform_from_pq(np.hstack((output_position, output_quat))))
+            
+    #         valid_trajectory = False
+    #         q, success, iter, searches, residual = robot.ik_LM(target_pose, q0=robot.q)
+    #         # Check if the IK solution is valid
+    #         if not success:
+    #             raise RuntimeError("IK failed to find a solution.")
+            
+    #         # TODO: Implement the validity checks
+            
+    #         robot.q = q
+    #         env.step(dt)
+        
+    #     # Move down till force of 8N is reached
+    #     # TODO: Fix the instant flip
+    #     while force < 8.0:
+    #         current_pose = robot.fkine(robot.q)
+    #         current_tool_pose = current_pose * robot.tool
+    #         target_pose = SE3(current_pose.t) * SE3(SO3.Rx(np.pi)) * SE3(0, 0, 0.01) * robot.tool
+            
+    #         quat = target_pose.R
+    #         target_flange_pose = target_pose * robot.tool.inv()
+
+    #         StartPose = robot.fkine(robot.q).t
+    #         goalPose = target_flange_pose.t
+    #         #goalPose = target_pose.t
+
+    #         for t in range(int(freq/2)):
+    #             # Interpolate between the start and goal positions
+    #             interpolated_pose = point_along_line_3d(StartPose, goalPose, t, int(freq/2))
+
+    #             # Account for pressure robot has to apply
+    #             if force < 8.0:
+    #                 f[2] = 0
+    #             else:
+    #                 f[2] = force
+
+    #             # Admittance controller step
+    #             quat = SO3.Rx(np.pi).UnitQuaternion()
+    #             quat_array = np.array([quat.s, quat.v[0], quat.v[1], quat.v[2]])  # Convert to [w, x, y, z]
+    #             adm_controller.step(f, mu, SE3(interpolated_pose).t, quat_array)
+    #             u = adm_controller.get_output()
+    #             output_position = u[0:3]
+    #             output_quat = u[3:7]
+
+    #             target_pose = SE3(pt.transform_from_pq(np.hstack((output_position, output_quat))))
+                
+            
+    #             valid_trajectory = False
+    #             q, success, iter, searches, residual = robot.ik_LM(target_pose, q0=robot.q)
+    #             # Check if the IK solution is valid
+    #             if not success:
+    #                 raise RuntimeError("IK failed to find a solution.")
+
+    #             #TODO: Implement the validity checks
+
+    #             robot.q = q
+    #             env.step(dt)
+
+    #             tool_position = (robot.fkine(q) * robot.tool).t
+    #             box_position = box_plane.t
+    #             force = force_calculator(tool_position, box_position, box_size)
+    #             #print(f"force: {force}")
+
+    #             if force > 0 and contactPos is None:
+    #                 contactPos = tool_position[2]
+
+    #     stopPos = tool_position[2]
+    #     stifness = (contactPos - stopPos) * force
+    #     force = 0
+
+    #     # Update the optimizer with the new sample and its corresponding force
+    #     optimizer.update_samples(sample, stifness)
+
+    #     # Move back up to beginPose
+    #     current_tool_pose = robot.fkine(robot.q) #* robot.tool
+    #     target_pose = SE3(current_tool_pose.t) * SE3(SO3.Rx(np.pi)) * SE3(0, 0, -0.02)
+    #     StartPose = robot.fkine(robot.q).t
+    #     goalPose = target_pose.t
+
+    #     for t in range(freq):
+    #         # Interpolate between the start and goal positions
+    #         interpolated_pose = point_along_line_3d(StartPose, goalPose, t, freq)
+
+    #         # Admittance controller step
+    #         f[2] = force
+    #         quat = SO3.Rx(np.pi).UnitQuaternion()
+    #         quat_array = np.array([quat.s, quat.v[0], quat.v[1], quat.v[2]])  # Convert to [w, x, y, z]
+    #         adm_controller.step(f, mu, SE3(interpolated_pose).t, quat_array)
+    #         u = adm_controller.get_output()
+    #         output_position = u[0:3]
+    #         output_quat = u[3:7]
+
+    #         target_pose = SE3(pt.transform_from_pq(np.hstack((output_position, output_quat))))
+            
+    #         valid_trajectory = False
+    #         q, success, iter, searches, residual = robot.ik_LM(target_pose, q0=robot.q)
+    #         # Check if the IK solution is valid
+    #         if not success:
+    #             raise RuntimeError("IK failed to find a solution.")
+            
+    #         #TODO: Implement the validity checks
+
+    #         robot.q = q
+    #         env.step(dt)
+
+    # print(f"Sampled all {optimizer.get_number_of_samples() + 1} points. Plotting the results...")
+    # optimizer.plot_optimization()
 
 
 
