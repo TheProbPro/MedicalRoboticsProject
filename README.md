@@ -22,6 +22,8 @@ dependencies:
      - git submodule update --init --recursive
      - python -m pip install .
 
+_There might be more dependencies update later!!!_
+
 Now you should be able to run the python script called SimTest.py or SimpleSim.py to verify that eveerything builds and works.
 
 # SimPalpationRobot.py
