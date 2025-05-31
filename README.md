@@ -22,10 +22,13 @@ dependencies:
      - git clone https://github.com/SDU-Robotics/sdu_controllers.git
      - git submodule update --init --recursive
      - python -m pip install .
+ -  scikit-learn: pip install scikit-learn
+ -  scipy: pip install scipy
+ -  matplotlib: pip install matplotlib
+ -  numpy-quaternion: pip install numpy-quaternion
+ -  ur-rtde: pip install ur-rtde
 
-_There might be more dependencies update later!!!_
-
-Now you should be able to run the python script called SimTest.py or SimpleSim.py to verify that eveerything builds and works.
+Now you should be able to run any scripts within this repository.
 
 # BOTest.py
 This file contains a test of the Bayesian optimization module, used in the next two files.
