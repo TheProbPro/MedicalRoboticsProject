@@ -26,6 +26,9 @@ _There might be more dependencies update later!!!_
 
 Now you should be able to run the python script called SimTest.py or SimpleSim.py to verify that eveerything builds and works.
 
+# BOTest.py
+This file contains a test of the Bayesian optimization module, used in the next two files.
+
 # SimPalpationRobot.py
 This file is the simulation of the automatic palpation robot procedure.
 
