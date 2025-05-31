@@ -14,11 +14,12 @@ When the virtual environment is create you want to install the following depende
 Now you should see the (.venv) in your terminal before your promt.
 
 dependencies:
- - Roboticstoolbox-python: pip3 install roboticstoolbox-python
+ -  Roboticstoolbox-python: pip3 install roboticstoolbox-python
  -  pytransform3d: pip install 'pytransform3d[all]'
  -  websockets version 13.1: pip uninstall websockets -> pip install websockets==13.1
  -  numpy<2: (if numpy installed) pip uninstall numpy -y -> pip install numpy<2
- -  sdu_controllers: git clone https://github.com/SDU-Robotics/sdu_controllers.git
+ -  sdu_controllers: (Link: https://github.com/SDU-Robotics/sdu_controllers#)
+     - git clone https://github.com/SDU-Robotics/sdu_controllers.git
      - git submodule update --init --recursive
      - python -m pip install .
 
